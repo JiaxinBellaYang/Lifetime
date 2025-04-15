@@ -12,6 +12,7 @@ from scipy.constants import e as elementary_charge
 from matplotlib.ticker import ScalarFormatter
 import os
 import sys
+import pandas as pd
 
 # Add the src directory to the Python path if not already there
 script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -36,8 +37,14 @@ except ImportError as e:
 def simulate_and_plot_uv_comparison():
     print("Starting calculations for UV Comparison Figure...")
 
+    # Define experimental data file paths
+    data_folder = "data"
+    before_uv_file = os.path.join(data_folder, "L2_pre_ini_G.xlsx")
+    after_uv_file = os.path.join(data_folder, "L2_pre_UV20_G.xlsx")
+
+    # Define simulation parameters
     params_before_uv = {
-        "label": "Before UV",
+        "label": "Before UV (Simulated)",
         "Dit0_v": 1, "Ev_trap_sigma": 1.500e-02,
         "Dit0_c": 1, "Ec_trap_sigma": 1.000e-02,
         "Dit0_g": 1.000e+12, "E0_g": 6.000e-01, "sigma_g": 5.000e-01,
@@ -45,7 +52,7 @@ def simulate_and_plot_uv_comparison():
     }
 
     params_after_uv = {
-        "label": "After UV",
+        "label": "After UV (Simulated)",
         "Dit0_v": 1, "Ev_trap_sigma": 2.510e-02,
         "Dit0_c": 1, "Ec_trap_sigma": 3.868e-02,
         "Dit0_g": 2.500e+12, "E0_g": 5.000e-01, "sigma_g": 4.000e-01,
@@ -53,6 +60,30 @@ def simulate_and_plot_uv_comparison():
     }
 
     parameter_sets = [params_before_uv, params_after_uv]
+
+    # Load experimental data
+    try:
+        df_before_uv = pd.read_excel(before_uv_file, sheet_name="RawData")
+        df_after_uv = pd.read_excel(after_uv_file, sheet_name="RawData")
+
+        # Extract relevant columns
+        time_before_uv = df_before_uv["Time (s)"].values
+        tau_before_uv = df_before_uv["Tau (sec)"].values
+        minority_carrier_density_before_uv = df_before_uv["Minority Carrier Density"].values
+
+        time_after_uv = df_after_uv["Time (s)"].values
+        tau_after_uv = df_after_uv["Tau (sec)"].values
+        minority_carrier_density_after_uv = df_after_uv["Minority Carrier Density"].values
+
+    except FileNotFoundError:
+        print("Error: Experimental data files not found. Skipping experimental data plotting.")
+        time_before_uv = []
+        tau_before_uv = []
+        minority_carrier_density_before_uv = []
+        time_after_uv = []
+        tau_after_uv = []
+        minority_carrier_density_after_uv = []
+
 
     E_array = create_energy_array(Ev, Ec, ENERGY_POINTS)
     
@@ -124,13 +155,19 @@ def simulate_and_plot_uv_comparison():
         all_tau_eff.extend(current_tau_eff * 1e3)
         print(f"  Finished calculation for: {params['label']}")
 
+    # Plot experimental data
+    if len(time_before_uv) > 0:
+        ax.loglog(minority_carrier_density_before_uv, tau_before_uv * 1e3, 'bo', label="Before UV (Exp)", markersize=5)
+    if len(time_after_uv) > 0:
+        ax.loglog(minority_carrier_density_after_uv, tau_after_uv * 1e3, 'ro', label="After UV (Exp)", markersize=5)
+
     ax.yaxis.set_major_formatter(ScalarFormatter(useMathText=False))
     ax.set_xlim([1e14, 1.1e17])
     ax.set_ylim([0.01, 100])
 
-    ax.set_xlabel('Excess Carrier Density, $\\Delta n$ (cm$^{-3}$)')
-    ax.set_ylabel('Effective Lifetime, $\\tau_{eff}$ (ms)')
-    ax.set_title('Simulated Lifetime: Before vs After UV')
+    ax.set_xlabel('Minority Carrier Density (cm$^{-3}$)')
+    ax.set_ylabel('Effective Lifetime (ms)')
+    ax.set_title('Simulated and Experimental Lifetime: Before vs After UV')
     ax.legend(frameon=False)
     ax.tick_params(axis='both', which='major', direction='in', length=8)
     ax.tick_params(axis='both', which='minor', direction='in', length=8)
