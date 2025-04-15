@@ -728,4 +728,4 @@ Qtotarray = np.logspace(6, 13, 2)
 colors = pl.cm.hsv(np.linspace(0,1,12))
 
 # This module contains the core functions and parameters for the lifetime simulation.
-# The figure generation has been moved to figure_generation.py and can be run from main_runner.py.
+# The figure generation has been moved to figure_generation.py and can be run from main_runner.py
