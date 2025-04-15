@@ -1,0 +1,7 @@
+# Explicitly ignore these files
+chargeanddit_original.py
+figure 1.png
+figure_1_original.png
+figure_diff.png
+Solver27.ipynb
+validate_results.py
