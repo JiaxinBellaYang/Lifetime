@@ -836,3 +836,178 @@ print("\nCalculations complete. Saving figure...")
 # plt.show()
 fig.savefig('figure 1.png')
 print("Figure saved as 'figure 1.png'")
+
+# --- Figure 2: Effect of Gaussian Width and Defect Position ---
+print("\nStarting calculations for Figure 2...")
+
+s0n = 1E-17
+s0p = 1E-17
+splusn = 1E-16
+sminusp = 1E-16
+
+colors = pl.cm.hsv(np.linspace(0,1,12))
+
+fig, ax = plt.subplots(1, 2, figsize=(8,4))
+
+# --- Simulation Loop 1: Varying Gaussian Width ---
+print("Starting calculations for varying Gaussian Width...")
+for i, gaussianWidth in enumerate(np.linspace(0.1, 0.5, 10)):
+    U = 0.15 
+    Ditmax = 1E10
+    Ditposition = 0.56
+    Qtot = -5e10 * elementary_charge
+    params_g = (Ditposition, Ditmax, gaussianWidth)
+    Dit_g = Dig_func(E, *params_g)
+    tau_surface_array = []
+    for count, dn in enumerate(dn_array):
+        Delta_n = dn
+        Ndop = Ndop_bulk
+        dop_type = dop_type_bulk
+        n0 = Ndop*(1-dop_type) + ni_b**2/Ndop*dop_type
+        p0 = Ndop*dop_type + ni_b**2/Ndop*(1 - dop_type)
+        n = Delta_n + n0
+        p = Delta_n + p0
+        tau_surface = surfaceLifetime(n0, p0, n, p, Delta_n, Qtot, T, Ndop_emitter, Ndop_bulk, dop_type_emitter, dop_type_bulk, dn, Dit_g)
+        tau_surface_array.append(tau_surface*1E3)
+    ax[0].loglog(dn_array, tau_surface_array, color=colors[i], linewidth=2)
+
+arrow = patches.FancyArrowPatch(
+    (1.5E14, 3), (1.5E14, 10), arrowstyle='<-', mutation_scale=15, color='black')
+ax[0].text(-0.1, 1.05, '(a)', transform=ax[0].transAxes, fontsize=12, va='bottom', ha='left')
+ax[0].add_patch(arrow)
+ax[0].text(1.6e14, 2.5, 'Wider Gaussian distribution', fontsize=10, color='black')
+
+# --- Simulation Loop 2: Varying Defect Position ---
+print("Starting calculations for varying Defect Position...")
+for i, Ditposition in enumerate(np.linspace(0.1, 0.55, 10)):
+    U = 0.15 
+    gaussianWidth = 0.18
+    Ditmax = 1E10
+    Qtot = -5e10 * elementary_charge
+    params_g = (Ditposition, Ditmax, gaussianWidth)
+    Dit_g = Dig_func(E, *params_g)
+    tau_surface_array = []
+    for count, dn in enumerate(dn_array):
+        Delta_n = dn
+        Ndop = Ndop_bulk
+        dop_type = dop_type_bulk
+        n0 = Ndop*(1-dop_type) + ni_b**2/Ndop*dop_type
+        p0 = Ndop*dop_type + ni_b**2/Ndop*(1 - dop_type)
+        n = Delta_n + n0
+        p = Delta_n + p0
+        tau_surface = surfaceLifetime(n0, p0, n, p, Delta_n, Qtot, T, Ndop_emitter, Ndop_bulk, dop_type_emitter, dop_type_bulk, dn, Dit_g)
+        tau_surface_array.append(tau_surface*1E3)
+    ax[1].loglog(dn_array, tau_surface_array, color=colors[i], linewidth=2)
+
+arrow = patches.FancyArrowPatch(
+    (1.5E14, 5), (1.5E14, 10), arrowstyle='<-', mutation_scale=15, color='black')
+ax[1].text(-0.1, 1.05, '(b)', transform=ax[1].transAxes, fontsize=12, va='bottom', ha='left')
+ax[1].add_patch(arrow)
+ax[1].text(1.6e14, 4, 'Deeper defect', fontsize=10, color='black')
+
+# --- Final Plot Formatting for Figure 2 ---
+for axis in ax:
+    axis.yaxis.set_major_formatter(ScalarFormatter(useMathText=False))
+    axis.set_xlim([1e14, 1.1e16])
+    axis.set_ylim([0.9, 12])
+    axis.set_xlabel('Carrier density $(cm^{-3})$')
+    axis.set_ylabel('Minority carrier lifetime $(ms)$')
+    axis.tick_params(axis='both', which='major', direction='in', length=8)
+    axis.tick_params(axis='both', which='minor', direction='in', length=8)
+
+plt.tight_layout()
+print("\nFigure 2 calculations complete. Saving figure...")
+# plt.show()
+fig.savefig('figure 2.png')
+print("Figure saved as 'figure 2.png'")
+
+# --- Figure 3: Effect of Charged Capture Cross-Section and Correlation Energy ---
+print("\nStarting calculations for Figure 3...")
+
+s0n = 1E-17
+s0p = 1E-17
+splusn = 1E-16
+sminusp = 1E-16
+
+colors = pl.cm.hsv(np.linspace(0,1,12))
+
+fig, ax = plt.subplots(1, 2, figsize=(8,4))
+
+# --- Simulation Loop 1: Varying Charged Capture Cross-Section ---
+print("Starting calculations for varying Charged Capture Cross-Section...")
+for i, scharged in enumerate(np.logspace(-17,-15,10)):
+    splusn = scharged
+    sminusp = scharged
+    U = 0.15 
+    Ditmax = 1E10
+    gaussianWidth = 0.18
+    Ditposition = 0.56
+    Qtot = -5e10 * elementary_charge
+    params_g = (Ditposition, Ditmax, gaussianWidth)
+    Dit_g = Dig_func(E, *params_g)
+    tau_surface_array = []
+    for count, dn in enumerate(dn_array):
+        Delta_n = dn
+        Ndop = Ndop_bulk
+        dop_type = dop_type_bulk
+        n0 = Ndop*(1-dop_type) + ni_b**2/Ndop*dop_type
+        p0 = Ndop*dop_type + ni_b**2/Ndop*(1 - dop_type)
+        n = Delta_n + n0
+        p = Delta_n + p0
+        tau_surface = surfaceLifetime(n0, p0, n, p, Delta_n, Qtot, T, Ndop_emitter, Ndop_bulk, dop_type_emitter, dop_type_bulk, dn, Dit_g)
+        tau_surface_array.append(tau_surface*1E3)
+    ax[0].loglog(dn_array, tau_surface_array, color=colors[i], linewidth=2)
+
+arrow = patches.FancyArrowPatch(
+    (1.5E14, 0.5), (1.5E14, 50), arrowstyle='<-', mutation_scale=15, color='black')
+ax[0].text(-0.1, 1.05, '(a)', transform=ax[0].transAxes, fontsize=12, va='bottom', ha='left')
+ax[0].add_patch(arrow)
+ax[0].text(1.6e14, 0.55, 'Larger charge capture cross section', fontsize=10, color='black')
+ax[0].set_xlim([1e14, 1.1e16])
+ax[0].set_xlabel('Carrier density $(cm^{-3})$')
+ax[0].set_ylabel('Minority carrier lifetime $(ms)$')
+ax[0].tick_params(axis='both', which='major', direction='in', length=8)
+ax[0].tick_params(axis='both', which='minor', direction='in', length=8)
+
+# --- Simulation Loop 2: Varying Correlation Energy ---
+print("Starting calculations for varying Correlation Energy...")
+for i, U in enumerate(np.linspace(0.05, 0.7, 10)):
+    Ditmax = 1E10
+    gaussianWidth = 0.18
+    Ditposition = 0.56
+    Qtot = -5e10 * elementary_charge
+    params_g = (Ditposition, Ditmax, gaussianWidth)
+    Dit_g = Dig_func(E, *params_g)
+    tau_surface_array = []
+    for count, dn in enumerate(dn_array):
+        Delta_n = dn
+        Ndop = Ndop_bulk
+        dop_type = dop_type_bulk
+        n0 = Ndop*(1-dop_type) + ni_b**2/Ndop*dop_type
+        p0 = Ndop*dop_type + ni_b**2/Ndop*(1 - dop_type)
+        n = Delta_n + n0
+        p = Delta_n + p0
+        tau_surface = surfaceLifetime(n0, p0, n, p, Delta_n, Qtot, T, Ndop_emitter, Ndop_bulk, dop_type_emitter, dop_type_bulk, dn, Dit_g)
+        tau_surface_array.append(tau_surface*1E3)
+    ax[1].loglog(dn_array, tau_surface_array, color=colors[i], linewidth=2)
+
+arrow = patches.FancyArrowPatch(
+    (1.5E14, 0.5), (1.5E14, 15), arrowstyle='->', mutation_scale=15, color='black')
+ax[1].text(-0.1, 1.05, '(b)', transform=ax[1].transAxes, fontsize=12, va='bottom', ha='left')
+ax[1].add_patch(arrow)
+ax[1].text(1.6e14, 0.55, 'Larger correlation energy', fontsize=10, color='black')
+
+# --- Final Plot Formatting for Figure 3 ---
+for axis in ax:
+    axis.yaxis.set_major_formatter(ScalarFormatter(useMathText=False))
+    axis.set_xlim([1e14, 1.1e16])
+    axis.set_xlabel('Carrier density $(cm^{-3})$')
+    axis.set_ylabel('Minority carrier lifetime $(ms)$')
+    axis.tick_params(axis='both', which='major', direction='in', length=8)
+    axis.tick_params(axis='both', which='minor', direction='in', length=8)
+
+plt.tight_layout()
+print("\nFigure 3 calculations complete. Saving figure...")
+# plt.show()
+fig.savefig('figure 3.png')
+print("Figure saved as 'figure 3.png'")
