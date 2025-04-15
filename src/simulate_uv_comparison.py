@@ -23,8 +23,8 @@ if script_dir not in sys.path:
 try:
     from chargeanddit import (
         surfaceLifetime, intrinsicLifetime, Dig_func, ni_func, create_energy_array,
-        Ev, Ec, T, Ndop_bulk, dop_type_bulk, Ndop_emitter, dop_type_emitter,
-        tau_SRH, W, ENERGY_POINTS, kB, NC, NV, GAUSS_U,
+        Ev, Ec, T, dop_type_bulk, Ndop_emitter, dop_type_emitter,
+        tau_SRH, ENERGY_POINTS, kB, NC, NV, GAUSS_U,
         s0n, s0p, splusn, sminusp, vth_n, vth_p,
         sigma_n1, sigma_p1, sigma_n2, sigma_p2,
         lw
@@ -33,6 +33,10 @@ except ImportError as e:
     print(f"Error importing from chargeanddit: {e}")
     print("Ensure chargeanddit.py is in the same directory or Python path.")
     sys.exit(1)
+
+
+Ndop_bulk = 1.5e15  # Bulk doping concentration (cm^-3)
+W = 0.015  # Sample thickness (cm)
 
 def simulate_and_plot_uv_comparison():
     print("Starting calculations for UV Comparison Figure...")
@@ -48,6 +52,7 @@ def simulate_and_plot_uv_comparison():
         "Dit0_v": 1, "Ev_trap_sigma": 1.500e-02,
         "Dit0_c": 1, "Ec_trap_sigma": 1.000e-02,
         "Dit0_g": 1.000e+12, "E0_g": 6.000e-01, "sigma_g": 5.000e-01,
+        "Qfix": 1e12,
         "color": "blue"
     }
 
@@ -56,6 +61,7 @@ def simulate_and_plot_uv_comparison():
         "Dit0_v": 1, "Ev_trap_sigma": 2.510e-02,
         "Dit0_c": 1, "Ec_trap_sigma": 3.868e-02,
         "Dit0_g": 2.500e+12, "E0_g": 5.000e-01, "sigma_g": 4.000e-01,
+        "Qfix": 8.5e11,
         "color": "red"
     }
 
@@ -89,8 +95,6 @@ def simulate_and_plot_uv_comparison():
     
     dn_array = np.logspace(14, 17, 100)
 
-    Qfix = 1e12
-    Qfix = -Qfix * elementary_charge
     ni_b = ni_func(T, Ndop_bulk, dop_type_bulk)
     
     plt.rc('xtick', labelsize=10)
@@ -131,8 +135,11 @@ def simulate_and_plot_uv_comparison():
             n = n0 + dn
             p = p0 + dn
 
+            # Apply negative sign and convert to charge for Qfix
+            qfix_charge = -params["Qfix"] * elementary_charge
+            
             tau_surf = surfaceLifetime(
-                n0, p0, n, p, dn, Qfix, T,
+                n0, p0, n, p, dn, qfix_charge, T,
                 Ndop_emitter, Ndop_bulk, dop_type_emitter, dop_type_bulk,
                 dn, Dit_tot
             )
