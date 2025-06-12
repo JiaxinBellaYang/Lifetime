@@ -51,16 +51,18 @@ def simulate_and_plot_uv_comparison():
         "label": "Before UV (Simulated)",
         "Dit0_v": 1, "Ev_trap_sigma": 1.500e-02,
         "Dit0_c": 1, "Ec_trap_sigma": 1.000e-02,
-        "Dit0_g": 1.000e+12, "E0_g": 6.000e-01, "sigma_g": 5.000e-01,
+        "Dit0_g1": 1.340e+12, "E0_g1": 3.716e-01, "sigma_g1": 1.724e-01,
+        "Dit0_g2": 1.805e+12, "E0_g2": 8.107e-01, "sigma_g2": 1.186e-01,
         "Qfix": 1e12,
         "color": "blue"
     }
 
     params_after_uv = {
         "label": "After UV (Simulated)",
-        "Dit0_v": 1, "Ev_trap_sigma": 2.510e-02,
-        "Dit0_c": 1, "Ec_trap_sigma": 3.868e-02,
-        "Dit0_g": 2.500e+12, "E0_g": 5.000e-01, "sigma_g": 4.000e-01,
+        "Dit0_v": 1, "Ev_trap_sigma": 1.448e-02,
+        "Dit0_c": 1, "Ec_trap_sigma": 3.599e-02,
+        "Dit0_g1": 8.806e+12, "E0_g1": 2.000e-01, "sigma_g1": 1.339e-01,
+        "Dit0_g2": 3.111e+12, "E0_g2": 6.978e-01, "sigma_g2": 2.000e-01,
         "Qfix": 8.5e11,
         "color": "red"
     }
@@ -113,9 +115,18 @@ def simulate_and_plot_uv_comparison():
     all_tau_eff = []
     for params in parameter_sets:
         print(f"  Calculating lifetime for: {params['label']}")
-        Dit_valence = Dig_func(E_array, Ev, params["Dit0_v"], params["Ev_trap_sigma"])
-        Dit_conduction = Dig_func(E_array, Ec, params["Dit0_c"], params["Ec_trap_sigma"])
-        Dit_midgap = Dig_func(E_array, params["E0_g"], params["Dit0_g"], params["sigma_g"])
+        
+        # Single-Gaussian for valence and conduction band traps
+        Dit_valence = Dig_func(E_array, Ev, params["Dit0_v"], params["Ev_trap_sigma"], 0, 0, 1)
+        Dit_conduction = Dig_func(E_array, Ec, params["Dit0_c"], params["Ec_trap_sigma"], 0, 0, 1)
+        
+        # Double-Gaussian for midgap traps
+        Dit_midgap = Dig_func(
+            E_array,
+            params["E0_g1"], params["Dit0_g1"], params["sigma_g1"],
+            params["E0_g2"], params["Dit0_g2"], params["sigma_g2"]
+        )
+
         Dit_tot = Dit_valence + Dit_conduction + Dit_midgap
 
         tau_eff_array = []
@@ -190,6 +201,11 @@ def simulate_and_plot_uv_comparison():
     fig.savefig(output_filename)
     print(f"\nUV Comparison calculations complete. Saving figure...")
     print(f"Figure saved as '{output_filename}'")
+
+    print("Debug: sigma_n1 values:", sigma_n1)  # Debugging capture cross section data
+    print("Debug: sigma_p1 values:", sigma_p1)  # Debugging capture cross section data
+    print("Debug: sigma_n2 values:", sigma_n2)  # Debugging capture cross section data
+    print("Debug: sigma_p2 values:", sigma_p2)  # Debugging capture cross section data
 
 if __name__ == "__main__":
     simulate_and_plot_uv_comparison()

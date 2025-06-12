@@ -429,3 +429,4 @@ def generate_figure3(surfaceLifetime, ni_func, Ev, Ec, ENERGY_POINTS, T, Ndop_bu
     os.makedirs('figures', exist_ok=True)
     fig.savefig('figures/figure 3.png')
     print("Figure saved as 'figures/figure 3.png'")
+

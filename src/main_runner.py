@@ -64,7 +64,7 @@ def validate_results():
     print("\nPerforming comprehensive validation...")
     try:
         # Run the validation script
-        result = subprocess.run(['python3', 'validation/validate_results.py'], 
+        result = subprocess.run(['python', 'validation/validate_results.py'], 
                                capture_output=True, text=True, check=False)
         
         # Print the output from the validation script

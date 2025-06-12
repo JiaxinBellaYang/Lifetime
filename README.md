@@ -1,10 +1,10 @@
 # Lifetime Simulation
 
-This project simulates the effect of interface defects on minority carrier lifetime in semiconductors. It calculates and visualizes how various parameters affect the surface recombination and resulting carrier lifetime.
+This project simulates the effect of interface defects on minority carrier lifetime in semiconductors. It calculates and visualises how various parameters affect the surface recombination and resulting carrier lifetime.
 
 ## Project Structure
 
-The project is organized into the following directories:
+The project is organised into the following directories:
 
 - `src/`: Contains the source code files
   - `chargeanddit.py`: Core functions and parameters for the simulation
@@ -57,7 +57,7 @@ To run the validation separately:
 python3 validation/validate_results.py
 ```
 
-## Scientific Background
+## Background
 
 The simulation models the effect of interface defects on minority carrier lifetime in semiconductors. It considers:
 
@@ -67,14 +67,4 @@ The simulation models the effect of interface defects on minority carrier lifeti
 - Capture cross-sections
 - Correlation energy
 
-The results are visualized as plots of minority carrier lifetime vs. carrier density for different parameter values.
-
-## Implementation Details
-
-The simulation is implemented in Python and uses:
-
-- NumPy for numerical calculations
-- SciPy for scientific functions
-- Matplotlib for plotting
-
-The code is organized to separate the core simulation logic from the figure generation code, making it easier to maintain and extend.
+The results are visualised as plots of minority carrier lifetime vs. carrier density for different parameter values.

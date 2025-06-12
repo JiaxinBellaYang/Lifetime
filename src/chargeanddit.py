@@ -7,6 +7,7 @@ import matplotlib.patches as patches
 import datetime # Used for potential file saving, keep for now
 from scipy.optimize import fsolve
 import matplotlib.pylab as pl
+import pandas as pd  # For loading experimental data
 # Import figure generation functions
 from figure_generation import generate_figure1, generate_figure2, generate_figure3
 
@@ -42,7 +43,7 @@ W = 0.014  # Sample thickness (cm)
 # Semiconductor parameters
 NC = 2.86E+19  # Effective density of states in conduction band (cm^-3)
 NV = 3.11E+19  # Effective density of states in valence band (cm^-3)
-Ndop_bulk = 2.4e15  # Bulk doping concentration (cm^-3)
+Ndop_bulk = 1.55e15  # Bulk doping concentration (cm^-3)
 Ndop_emitter = 0.0  # Emitter doping concentration (cm^-3)
 dop_type_bulk = 1.0  # Bulk doping type (1 for n-type, 0 for p-type)
 dop_type_emitter = 1.0  # Emitter doping type (1 for n-type, 0 for p-type)
@@ -74,8 +75,8 @@ CONDUCTION_DIT_SIGMA = 0.195
 
 # Capture Cross Sections (used in J0sv2_func and main script section)
 # Note: These are currently set but some are overwritten later. Clarify intended usage.
-SP0_DEFAULT = 3E-15 # cm^2
-SN0_DEFAULT = SP0_DEFAULT # cm^2
+SP0_DEFAULT = 4.5E-18 # cm^2
+SN0_DEFAULT = 100*SP0_DEFAULT # cm^2
 SPMINUS_DEFAULT = 10 * SP0_DEFAULT # cm^2
 SNPLUS_DEFAULT = 10 * SN0_DEFAULT # cm^2
 
@@ -110,7 +111,7 @@ snaSi = 7E-16  # Electron capture cross section (cm^2)
 spaSi = 7E-16  # Hole capture cross section (cm^2)
 
 # Bulk lifetime
-tau_SRH = 25E-3  # Shockley-Read-Hall lifetime (s)
+tau_SRH = 2E-3  # Shockley-Read-Hall lifetime (s)
 
 # Optimization parameters
 maxiterations = 140  # Max number of iterations in optimization routine
@@ -166,24 +167,29 @@ def find_lifetime(dnarray, lifetimearray, valueDeltaN):
     idx = (np.abs(dnarray - valueDeltaN)).argmin()
     return lifetimearray[idx]
 
-def Dig_func(E, *params):
+def Dig_func(E, E0_1, Dit_0g1, sigma_1, E0_2, Dit_0g2, sigma_2):
     """
-    Calculates the Gaussian distribution for the Density of Interface Traps (Dit).
+    Calculates the double Gaussian distribution for the Density of Interface Traps (Dit).
 
     Args:
         E (np.ndarray): Energy array (eV).
-        *params: Tuple containing:
-            E0 (float): Center energy of the Gaussian distribution (eV).
-            Dit_0g (float): Peak value of the Dit distribution (cm^-2 eV^-1).
-            sigma (float): Standard deviation (width) of the Gaussian distribution (eV).
+        E0_1 (float): Center energy of the first Gaussian distribution (eV).
+        Dit_0g1 (float): Peak value of the first Dit distribution (cm^-2 eV^-1).
+        sigma_1 (float): Standard deviation (width) of the first Gaussian distribution (eV).
+        E0_2 (float): Center energy of the second Gaussian distribution (eV).
+        Dit_0g2 (float): Peak value of the second Dit distribution (cm^-2 eV^-1).
+        sigma_2 (float): Standard deviation (width) of the second Gaussian distribution (eV).
 
     Returns:
-        np.ndarray: Dit distribution as a function of energy (cm^-2 eV^-1).
+        np.ndarray: Combined Dit distribution as a function of energy (cm^-2 eV^-1).
     """
-    E0_gauss = params[0]
-    Dit_0g = params[1]
-    sigma_gauss = params[2]
-    Dit_g = Dit_0g * np.exp(-((E - E0_gauss) / sigma_gauss)**2 / 2)
+    # Calculate the two Gaussian distributions
+    Dit_g1 = Dit_0g1 * np.exp(-((E - E0_1) / sigma_1)**2 / 2)
+    Dit_g2 = Dit_0g2 * np.exp(-((E - E0_2) / sigma_2)**2 / 2)
+
+    # Combine the two distributions
+    Dit_g = Dit_g1 + Dit_g2
+
     return Dit_g
 
 def ns_zero_func(ns, *params):
@@ -322,35 +328,12 @@ def J0sv2_func(X, *params):
     E = create_energy_array()
     dE = E[1:] - E[:-1]
 
-    # --- Amphoteric Defect Model Calculations (using input Dit_E) ---
-    cplusn = vth_n*splusn
-    c0p = vth_p*s0p
-    c0n = vth_n*s0n
-    cminusp = vth_p*sminusp
-    
-    # Emission rates (check prefactors based on degeneracy factors if needed)
-    e0n = 0.5 * cplusn * NC * np.exp((E - Ec) / kT)
-    eplusp = 2.0 * c0p * NV * np.exp((-E) / kT)
-    eminusn = 2.0 * c0n * NC * np.exp((GAUSS_U + E - Ec) / kT) # Using GAUSS_U constant
-    e0p = 0.5 * cminusp * NV * np.exp((-E - GAUSS_U) / kT) # Using GAUSS_U constant
-
-    # Denominators for SRH statistics
-    N0 = c0n * ns_in + e0p;
-    Nplus = cplusn * ns_in + eplusp;
-    P0 = c0p * ps + e0n;
-    Pminus = cminusp * ps + eminusn;
-    
-    Fplus = Pminus*P0/(Nplus*Pminus + P0*Pminus + Nplus*N0)
-    F0 = Pminus*Nplus/(Nplus*Pminus + P0*Pminus + Nplus*N0)
-    Fminus = N0 * Nplus / (Nplus * Pminus + P0 * Pminus + Nplus * N0)
-
-    # Recombination rate per unit energy
-    # This part seems to use the amphoteric model parameters (cplusn, c0p, etc.)
-    # but multiplies by Dit_E (the input Dit distribution). Verify model consistency.
-    UofE = (ps * ns_in - ni_e**2) * Dit_E * (cplusn * c0p * Pminus + c0n * cminusp * Nplus) / (Nplus * Pminus + P0 * Pminus + Nplus * N0)
-    # Integrate recombination rate over energy (Trapezoidal rule)
-    Uint = np.sum((UofE[1:] + UofE[:-1]) / 2 * dE)
-
+    # --- Use Input Capture Cross-Sections for SRH Model ---
+    # Calculate capture rates using the input sigma parameters
+    cn1 = sigma_n1 * vth_n  # Electron capture rate for state 1
+    cp1 = sigma_p1 * vth_p  # Hole capture rate for state 1
+    cn2 = sigma_n2 * vth_n  # Electron capture rate for state 2
+    cp2 = sigma_p2 * vth_p  # Hole capture rate for state 2
 
     # SRH parameters n1, p1, etc.
     n11 = NC * np.exp(-E / kT)
@@ -359,10 +342,20 @@ def J0sv2_func(X, *params):
     n12 = NC * np.exp(-(E + GAUSS_U) / kT) # Using GAUSS_U constant
     p12 = NV * np.exp(-(Eg - (E + GAUSS_U)) / kT) # Using GAUSS_U constant
 
+    # Calculate SRH recombination rate using input capture cross sections
+    # Standard SRH recombination formula for two charge states
+    R1 = Dit_E * (ps * ns_in - ni_e**2) / ((ns_in + n11) / cp1 + (ps + p11) / cn1)
+    R2 = Dit_E * (ps * ns_in - ni_e**2) / ((ns_in + n12) / cp2 + (ps + p12) / cn2)
+    
+    # Total recombination rate per unit energy
+    UofE = R1 + R2
+    
+    # Integrate recombination rate over energy (Trapezoidal rule)
+    Uint = np.sum((UofE[1:] + UofE[:-1]) / 2 * dE)
+
     # Capture cross-section ratios
     k1 = sigma_n1 / sigma_p1
     k2 = sigma_n2 / sigma_p2
-
 
     # Occupancy factors (alpha) and defect state populations (Nsplus1, Ns, Nsplus2)
     # These calculations seem related to the amphoteric model and use Dit_E (Nit).
@@ -724,6 +717,29 @@ sigma_n2 = E_sigma * 0 + sn0_sim    # Electron capture for state 2 (-)
 # Carrier density array for calculations
 dn_array = np.logspace(14, 17)
 Qtotarray = np.logspace(6, 13, 2)
+
+# Load experimental data for fitting functions
+try:
+    # Load experimental lifetime data
+    exp_data = pd.read_excel('data/L2_pre_ini_G.xlsx', sheet_name='RawData')
+    dn_exp = exp_data["Minority Carrier Density"].to_numpy()
+    tau_exp = exp_data["Tau (sec)"].to_numpy()
+    
+    # Remove any invalid data points
+    valid_mask = (dn_exp > 0) & (tau_exp > 0) & np.isfinite(dn_exp) & np.isfinite(tau_exp)
+    dn_exp = dn_exp[valid_mask]
+    tau_exp = tau_exp[valid_mask]
+    
+    print(f"Loaded experimental data: {len(dn_exp)} data points")
+    print(f"dn_exp range: {dn_exp.min():.2e} - {dn_exp.max():.2e} cm^-3")
+    print(f"tau_exp range: {tau_exp.min():.2e} - {tau_exp.max():.2e} s")
+    
+except (FileNotFoundError, KeyError) as e:
+    print(f"Warning: Could not load experimental data: {e}")
+    print("Using default arrays for dn_exp and tau_exp")
+    # Provide default values if file loading fails
+    dn_exp = np.logspace(14, 16, 10)  # Default carrier density array
+    tau_exp = np.ones_like(dn_exp) * 1e-3  # Default lifetime array (1 ms)
 
 colors = pl.cm.hsv(np.linspace(0,1,12))
 
