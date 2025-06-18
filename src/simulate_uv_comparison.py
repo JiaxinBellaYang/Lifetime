@@ -14,6 +14,15 @@ import os
 import sys
 import pandas as pd
 
+# For electrons (sigma_n)
+SIGMA0_N = 4.1e-14  # cm^-2
+A_N = 80.0          # eV^-2
+E0_N = 0.04         # eV (relative to mid-gap)
+# For holes (sigma_p)
+SIGMA0_P = 4.1e-16  # cm^-2
+A_P = 110.0         # eV^-2
+E0_P = -0.15        # eV (relative to mid-gap)
+
 # Add the src directory to the Python path if not already there
 script_dir = os.path.dirname(os.path.abspath(__file__))
 if script_dir not in sys.path:
@@ -21,12 +30,13 @@ if script_dir not in sys.path:
 
 # Import necessary functions and constants from chargeanddit
 try:
-    from chargeanddit import (
+    from QandDit_single import (
         surfaceLifetime, intrinsicLifetime, Dig_func, ni_func, create_energy_array,
+        calculate_gaussian_sigma,
         Ev, Ec, T, dop_type_bulk, Ndop_emitter, dop_type_emitter,
         tau_SRH, ENERGY_POINTS, kB, NC, NV, GAUSS_U,
-        s0n, s0p, splusn, sminusp, vth_n, vth_p,
-        sigma_n1, sigma_p1, sigma_n2, sigma_p2,
+        vth_n, vth_p,
+        sigma_n, sigma_p,
         lw
     )
 except ImportError as e:
@@ -37,6 +47,9 @@ except ImportError as e:
 
 Ndop_bulk = 1.5e15  # Bulk doping concentration (cm^-3)
 W = 0.015  # Sample thickness (cm)
+
+# --- Gaussian Capture Cross Section Parameters ---
+
 
 def simulate_and_plot_uv_comparison():
     print("Starting calculations for UV Comparison Figure...")
@@ -51,19 +64,17 @@ def simulate_and_plot_uv_comparison():
         "label": "Before UV (Simulated)",
         "Dit0_v": 1, "Ev_trap_sigma": 1.500e-02,
         "Dit0_c": 1, "Ec_trap_sigma": 1.000e-02,
-        "Dit0_g1": 1.340e+12, "E0_g1": 3.716e-01, "sigma_g1": 1.724e-01,
-        "Dit0_g2": 1.805e+12, "E0_g2": 8.107e-01, "sigma_g2": 1.186e-01,
+        "Dit0_g": 1.000e+12, "E0_g": 0.6, "sigma_g": 5.000e-01,
         "Qfix": 1e12,
         "color": "blue"
     }
 
     params_after_uv = {
-        "label": "After UV (Simulated)",
-        "Dit0_v": 1, "Ev_trap_sigma": 1.448e-02,
-        "Dit0_c": 1, "Ec_trap_sigma": 3.599e-02,
-        "Dit0_g1": 8.806e+12, "E0_g1": 2.000e-01, "sigma_g1": 1.339e-01,
-        "Dit0_g2": 3.111e+12, "E0_g2": 6.978e-01, "sigma_g2": 2.000e-01,
-        "Qfix": 8.5e11,
+         "label": "After UV (Simulated)",
+        "Dit0_v": 1, "Ev_trap_sigma": 2.510e-02,
+        "Dit0_c": 1, "Ec_trap_sigma": 3.868e-02,
+        "Dit0_g": 2.500e+12, "E0_g": 0.6, "sigma_g": 4.000e-01,
+        "Qfix": 8e11,
         "color": "red"
     }
 
@@ -94,9 +105,11 @@ def simulate_and_plot_uv_comparison():
 
 
     E_array = create_energy_array(Ev, Ec, ENERGY_POINTS)
+    print("Generating energy-dependent capture cross-sections using imported function...")
+    sigma_n = calculate_gaussian_sigma(E_array, SIGMA0_N, A_N, E0_N)
+    sigma_p = calculate_gaussian_sigma(E_array, SIGMA0_P, A_P, E0_P)
     
     dn_array = np.logspace(14, 17, 100)
-
     ni_b = ni_func(T, Ndop_bulk, dop_type_bulk)
     
     plt.rc('xtick', labelsize=10)
@@ -120,14 +133,9 @@ def simulate_and_plot_uv_comparison():
         Dit_valence = Dig_func(E_array, Ev, params["Dit0_v"], params["Ev_trap_sigma"], 0, 0, 1)
         Dit_conduction = Dig_func(E_array, Ec, params["Dit0_c"], params["Ec_trap_sigma"], 0, 0, 1)
         
-        # Double-Gaussian for midgap traps
-        Dit_midgap = Dig_func(
-            E_array,
-            params["E0_g1"], params["Dit0_g1"], params["sigma_g1"],
-            params["E0_g2"], params["Dit0_g2"], params["sigma_g2"]
-        )
-
+        Dit_midgap = Dig_func(E_array, params["E0_g"], params["Dit0_g"], params["sigma_g"])
         Dit_tot = Dit_valence + Dit_conduction + Dit_midgap
+
 
         tau_eff_array = []
 
@@ -142,7 +150,8 @@ def simulate_and_plot_uv_comparison():
             n0 = ni_b
             p0 = ni_b
 
-        for dn in dn_array:
+        # ### 关键修改在这里: 使用 enumerate ###
+        for i, dn in enumerate(dn_array):
             n = n0 + dn
             p = p0 + dn
 
@@ -152,9 +161,36 @@ def simulate_and_plot_uv_comparison():
             tau_surf = surfaceLifetime(
                 n0, p0, n, p, dn, qfix_charge, T,
                 Ndop_emitter, Ndop_bulk, dop_type_emitter, dop_type_bulk,
-                dn, Dit_tot
+                dn, Dit_tot, sigma_n, sigma_p
             )
             tau_intr = intrinsicLifetime(n0, p0, n, p, dn)
+
+            # ===== DEBUG STEP 3: 诊断代码从这里开始 =====
+            # 现在 i 是由 enumerate 提供的，所以这段代码可以正常工作了
+            if i == 50:
+                print("\n------------------------------------------------------------------")
+                print(f"DEBUG STEP 3: Lifetime Components for '{params['label']}'")
+                print(f"  Injection dn = {dn:.2e} cm^-3")
+                print("--- Lifetimes in milliseconds (ms) ---")
+                print(f"  tau_SRH (Bulk):    {tau_SRH * 1e3:.4f} ms")
+                print(f"  tau_intr (Intrinsic): {tau_intr * 1e3:.4f} ms")
+                print(f"  tau_surface (Surface): {tau_surf * 1e3:.4f} ms")
+
+                print("\n--- Inverse Lifetimes (Recombination Rates) ---")
+                inv_srh = 1/tau_SRH if tau_SRH > 0 else 0
+                inv_intr = 1/tau_intr if tau_intr > 0 and np.isfinite(tau_intr) else 0
+                inv_surf = 1/tau_surf if tau_surf > 0 and np.isfinite(tau_surf) else 0
+                print(f"  1/tau_SRH:    {inv_srh:.2f}")
+                print(f"  1/tau_intr:   {inv_intr:.2f}")
+                print(f"  1/tau_surface:{inv_surf:.2f}")
+
+                inv_tau_eff_sum = inv_srh + inv_intr + inv_surf
+                tau_eff_debug = 1.0 / inv_tau_eff_sum if inv_tau_eff_sum > 1e-20 else np.inf
+                
+                print("\n--- Final Calculation ---")
+                print(f"  --> Final tau_eff:  {tau_eff_debug * 1e3:.4f} ms")
+                print("------------------------------------------------------------------\n")
+            # ===== 诊断代码到这里结束 =====
 
             inv_tau_srh = 1.0 / tau_SRH if tau_SRH > 0 else 0
             inv_tau_intr = 1.0 / tau_intr if tau_intr > 0 and np.isfinite(tau_intr) else 0
@@ -197,15 +233,14 @@ def simulate_and_plot_uv_comparison():
     figures_dir = os.path.join(project_root, 'figures')
     os.makedirs(figures_dir, exist_ok=True)
     
-    output_filename = os.path.join(figures_dir, 'figure_uv_comparison.png')
+    output_filename = os.path.join(figures_dir, 'figure_uv_comparison_1.png')
     fig.savefig(output_filename)
     print(f"\nUV Comparison calculations complete. Saving figure...")
     print(f"Figure saved as '{output_filename}'")
 
-    print("Debug: sigma_n1 values:", sigma_n1)  # Debugging capture cross section data
-    print("Debug: sigma_p1 values:", sigma_p1)  # Debugging capture cross section data
-    print("Debug: sigma_n2 values:", sigma_n2)  # Debugging capture cross section data
-    print("Debug: sigma_p2 values:", sigma_p2)  # Debugging capture cross section data
+    print("Debug: sigma_n values:", sigma_n)  # Debugging capture cross section data
+    print("Debug: sigma_p values:", sigma_p)  # Debugging capture cross section data
+
 
 if __name__ == "__main__":
     simulate_and_plot_uv_comparison()
